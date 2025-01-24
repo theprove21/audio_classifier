@@ -7,6 +7,7 @@ import numpy as np
 import platform
 import sys
 import os
+import gc
 
 # Direct imports since files are in the same directory structure
 from config import Config
@@ -56,89 +57,105 @@ def train_and_evaluate(model, train_loader, val_loader, optimizer, criterion, ep
     
     return train_loss, val_loss, accuracy
 
+def cleanup():
+    """Clean up CUDA memory"""
+    gc.collect()
+    torch.cuda.empty_cache()
+
 def train_model():
-    # Check environment first
-    check_environment()
-    
-    # Create directories if they don't exist
-    os.makedirs('models/saved', exist_ok=True)
-    
-    # Initialize preprocessing
-    preprocessor = AudioPreprocessor(
-        sample_rate=Config.SAMPLE_RATE,
-        n_mels=Config.N_MELS,
-        duration=Config.DURATION
-    )
-    
-    # Store results for each fold
-    fold_accuracies = []
-    
-    # Perform 10-fold cross validation
-    for fold in range(1, 11):
-        print(f'\n=== Training on Fold {fold} ===')
+    try:
+        # Check environment first
+        check_environment()
         
-        train_folds = [f for f in range(1, 11) if f != fold]
+        # Explicitly set the device
+        torch.cuda.set_device(0)  # Use first GPU
+        print(f"Using device: {torch.cuda.current_device()}")
         
-        train_dataset = UrbanSoundDataset(fold=train_folds, transform=preprocessor.preprocess)
-        test_dataset = UrbanSoundDataset(fold=[fold], transform=preprocessor.preprocess)
-        
-        train_loader = DataLoader(
-            train_dataset,
-            batch_size=Config.BATCH_SIZE,
-            shuffle=True,
-            num_workers=4,
-            pin_memory=False  # Changed to False since data is already on GPU
-        )
-        test_loader = DataLoader(
-            test_dataset,
-            batch_size=Config.BATCH_SIZE,
-            shuffle=False,
-            num_workers=4,
-            pin_memory=False  # Changed to False since data is already on GPU
-        )
-        
-        # Initialize new model for each fold
+        # Move model to GPU
         model = AudioCNN(Config.NUM_CLASSES).to(Config.DEVICE)
+        criterion = torch.nn.CrossEntropyLoss().to(Config.DEVICE)
         optimizer = Adam(model.parameters(), lr=Config.LEARNING_RATE)
-        criterion = CrossEntropyLoss()
         
-        # Training loop for this fold
-        best_accuracy = 0
-        for epoch in range(Config.NUM_EPOCHS):
-            train_loss, val_loss, accuracy = train_and_evaluate(
-                model, train_loader, test_loader, optimizer, criterion, epoch, fold
+        # Create directories if they don't exist
+        os.makedirs('models/saved', exist_ok=True)
+        
+        # Initialize preprocessing
+        preprocessor = AudioPreprocessor(
+            sample_rate=Config.SAMPLE_RATE,
+            n_mels=Config.N_MELS,
+            duration=Config.DURATION
+        )
+        
+        # Store results for each fold
+        fold_accuracies = []
+        
+        # Perform 10-fold cross validation
+        for fold in range(1, 11):
+            print(f'\n=== Training on Fold {fold} ===')
+            
+            train_folds = [f for f in range(1, 11) if f != fold]
+            
+            train_dataset = UrbanSoundDataset(fold=train_folds, transform=preprocessor.preprocess)
+            test_dataset = UrbanSoundDataset(fold=[fold], transform=preprocessor.preprocess)
+            
+            train_loader = DataLoader(
+                train_dataset,
+                batch_size=Config.BATCH_SIZE,
+                shuffle=False,
+                num_workers=4,
+                pin_memory=False,
+                persistent_workers=True,
+                multiprocessing_context='spawn'
+            )
+            test_loader = DataLoader(
+                test_dataset,
+                batch_size=Config.BATCH_SIZE,
+                shuffle=False,
+                num_workers=4,
+                pin_memory=False,
+                persistent_workers=True,
+                multiprocessing_context='spawn'
             )
             
-            print(f'Fold: {fold}, Epoch: {epoch}')
-            print(f'Training Loss: {train_loss:.4f}')
-            print(f'Validation Loss: {val_loss:.4f}')
-            print(f'Validation Accuracy: {accuracy:.2f}%')
+            # Training loop for this fold
+            best_accuracy = 0
+            for epoch in range(Config.NUM_EPOCHS):
+                train_loss, val_loss, accuracy = train_and_evaluate(
+                    model, train_loader, test_loader, optimizer, criterion, epoch, fold
+                )
+                
+                print(f'Fold: {fold}, Epoch: {epoch}')
+                print(f'Training Loss: {train_loss:.4f}')
+                print(f'Validation Loss: {val_loss:.4f}')
+                print(f'Validation Accuracy: {accuracy:.2f}%')
+                
+                # Save best model for this fold
+                if accuracy > best_accuracy:
+                    best_accuracy = accuracy
+                    torch.save(model.state_dict(), f'models/saved/best_model_fold_{fold}.pt')
             
-            # Save best model for this fold
-            if accuracy > best_accuracy:
-                best_accuracy = accuracy
-                torch.save(model.state_dict(), f'models/saved/best_model_fold_{fold}.pt')
+            # Store the best accuracy for this fold
+            fold_accuracies.append(best_accuracy)
+            
+            print(f'\nBest accuracy for fold {fold}: {best_accuracy:.2f}%')
         
-        # Store the best accuracy for this fold
-        fold_accuracies.append(best_accuracy)
+        # Calculate and print cross-validation results
+        mean_accuracy = np.mean(fold_accuracies)
+        std_accuracy = np.std(fold_accuracies)
         
-        print(f'\nBest accuracy for fold {fold}: {best_accuracy:.2f}%')
-    
-    # Calculate and print cross-validation results
-    mean_accuracy = np.mean(fold_accuracies)
-    std_accuracy = np.std(fold_accuracies)
-    
-    print('\n=== Cross-validation Results ===')
-    print(f'Individual fold accuracies: {fold_accuracies}')
-    print(f'Mean accuracy: {mean_accuracy:.2f}% ±{std_accuracy:.2f}%')
-    
-    # Save final results
-    results = {
-        'fold_accuracies': fold_accuracies,
-        'mean_accuracy': mean_accuracy,
-        'std_accuracy': std_accuracy
-    }
-    torch.save(results, 'models/saved/cross_validation_results.pt')
+        print('\n=== Cross-validation Results ===')
+        print(f'Individual fold accuracies: {fold_accuracies}')
+        print(f'Mean accuracy: {mean_accuracy:.2f}% ±{std_accuracy:.2f}%')
+        
+        # Save final results
+        results = {
+            'fold_accuracies': fold_accuracies,
+            'mean_accuracy': mean_accuracy,
+            'std_accuracy': std_accuracy
+        }
+        torch.save(results, 'models/saved/cross_validation_results.pt')
+    finally:
+        cleanup()
 
 if __name__ == "__main__":
     train_model() 

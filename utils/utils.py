@@ -36,9 +36,13 @@ def check_environment():
     import torchaudio
     import platform
     
-    # Determine the best available device
+    # Set CUDA device first
+    if torch.cuda.is_available():
+        torch.cuda.set_device(0)
+    
+    # Create tensor on CUDA directly
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    tensor = torch.randn(3, 3)
+    tensor = torch.randn(3, 3).to(device)
 
     print("\n=== Environment Information ===")
     print(f"Python version: {platform.python_version()}")
@@ -48,7 +52,7 @@ def check_environment():
     
     if torch.cuda.is_available():
         print(f"CUDA version: {torch.version.cuda}")
-        print(f"Current CUDA device: {tensor.device}")
+        print(f"Current CUDA device: {tensor.device}")  
         print(f"Device name: {torch.cuda.get_device_name()}")
         print(f"Device count: {torch.cuda.device_count()}")
         print(f"Device properties: {torch.cuda.get_device_properties(0)}")
@@ -56,4 +60,4 @@ def check_environment():
     print(f"Using device: {device}")
     print("===============================\n")
     
-   # return device  # Return the device so it can be used elsewhere in the code 
+    return device 

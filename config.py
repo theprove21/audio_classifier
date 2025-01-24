@@ -9,7 +9,7 @@ class Config:
     NUM_CLASSES = 10  # UrbanSound8K has 10 classes
     BATCH_SIZE = 32
     LEARNING_RATE = 0.001
-    NUM_EPOCHS = 10
+    NUM_EPOCHS = 5
     
     # Paths
     DATA_DIR = r"D:\Documenti\MSc IS\TESI_hyperbolic\sound_datasets\urbansound8k\audio"

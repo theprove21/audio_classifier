@@ -40,10 +40,11 @@ class UrbanSoundDataset(Dataset):
             })
 
     def __len__(self):
-        return len(self.metadata)
-    
-    def __len_current_fold__(self):
+        # return len(self.metadata)
         return len(self.data)
+    
+    # def __len_current_fold__(self):
+    #     return len(self.data)
     
     def __getitem__(self, idx):
         audio_path = self.data[idx]['path']
