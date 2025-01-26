@@ -140,6 +140,10 @@ def train_model():
         # Increase batch size for better GPU utilization
         # BATCH_SIZE = 128  # or 256 depending on memory
         
+        # Create CPU generator for DataLoader
+        g = torch.Generator()
+        g.manual_seed(Config.RANDOM_SEED)
+        
         # Perform 10-fold cross validation
         for fold in range(1, 11):
             print(f'\n=== Training on Fold {fold} ===')
@@ -158,7 +162,7 @@ def train_model():
                 persistent_workers=Config.PERSISTENT_WORKERS,
                 prefetch_factor=Config.PREFETCH_FACTOR,
                 drop_last=Config.DROP_LAST,
-                generator=torch.Generator(device=Config.DEVICE) if Config.GENERATOR_WORKERS else None,
+                generator=g,  # Use CPU generator
                 multiprocessing_context='spawn'
             )
             test_loader = DataLoader(
@@ -170,7 +174,7 @@ def train_model():
                 persistent_workers=Config.PERSISTENT_WORKERS,
                 prefetch_factor=Config.PREFETCH_FACTOR,
                 drop_last=Config.DROP_LAST,
-                generator=torch.Generator(device=Config.DEVICE) if Config.GENERATOR_WORKERS else None,
+                generator=g,  # Use CPU generator
                 multiprocessing_context='spawn'
             )
             
