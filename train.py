@@ -24,10 +24,11 @@ def train_and_evaluate(model, train_loader, val_loader, optimizer, criterion, ep
     model.train()
     train_loss = 0
     
-    scaler = GradScaler('cuda')
+    # Move scaler initialization to train_model function
+    scaler = torch.amp.GradScaler('cuda')  # Fixed deprecation warning
     
     for batch_idx, (data, target) in enumerate(tqdm(train_loader, desc=f'Fold {fold}, Epoch {epoch}')):
-        # Add these prints for the first batch only
+        # Data should already be on GPU from dataset
         if batch_idx == 0:
             print(f"\nFirst batch info:")
             print(f"Input data device: {data.device}")
@@ -35,9 +36,6 @@ def train_and_evaluate(model, train_loader, val_loader, optimizer, criterion, ep
             print(f"Model device: {next(model.parameters()).device}")
             print(f"CUDA memory allocated: {torch.cuda.memory_allocated()/1e9:.2f} GB")
             print(f"CUDA memory cached: {torch.cuda.memory_reserved()/1e9:.2f} GB\n")
-        
-        data = data.to(Config.DEVICE)
-        target = target.to(Config.DEVICE)
         
         optimizer.zero_grad()
         

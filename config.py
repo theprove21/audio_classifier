@@ -11,9 +11,9 @@ class Config:
     NUM_EPOCHS = 5
     
     # Training parameters
-    BATCH_SIZE = 128  # Increased for better GPU utilization
-    NUM_WORKERS = 2   # Number of DataLoader workers
-    PIN_MEMORY = True
+    BATCH_SIZE = 128
+    NUM_WORKERS = 2
+    PIN_MEMORY = False
     PERSISTENT_WORKERS = True
     PREFETCH_FACTOR = 2
     

@@ -57,38 +57,25 @@ class UrbanSoundDataset(Dataset):
         audio_path = self.data[idx]['path']
         label = self.data[idx]['label']
         
-        # Load audio file and immediately move to GPU
+        # Load audio file
         waveform, sample_rate = torchaudio.load(audio_path)
-        waveform = waveform.to(Config.DEVICE)
         
-        # Create label tensor directly on GPU
-        label = torch.tensor(label, device=Config.DEVICE)
+        # Move to GPU immediately
+        waveform = waveform.to(Config.DEVICE, non_blocking=True)
         
-        # Resample if necessary
         if sample_rate != Config.SAMPLE_RATE:
             resampler = torchaudio.transforms.Resample(
                 sample_rate, Config.SAMPLE_RATE
             ).to(Config.DEVICE)
             waveform = resampler(waveform)
         
-        # Convert to mono if stereo
-        if waveform.shape[0] > 1:
-            waveform = torch.mean(waveform, dim=0, keepdim=True)
-        
-        # Pad or trim to fixed duration
-        target_length = int(Config.DURATION * Config.SAMPLE_RATE)
-        current_length = waveform.shape[1]
-        
-        if current_length > target_length:
-            waveform = waveform[:, :target_length]
-        elif current_length < target_length:
-            padding = target_length - current_length
-            waveform = torch.nn.functional.pad(waveform, (0, padding))
-        
-        # Apply transformations if any
+        # Apply preprocessing
         if self.transform:
             waveform = self.transform(waveform)
-            
+        
+        # Create label tensor directly on GPU
+        label = torch.tensor(label, device=Config.DEVICE)
+        
         return waveform, label 
 if __name__ == "__main__":
     dataset = UrbanSoundDataset(fold=5)
