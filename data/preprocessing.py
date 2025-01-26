@@ -15,14 +15,15 @@ class AudioPreprocessor:
             n_fft=2048,
             hop_length=512,
             n_mels=n_mels
-        ).to(Config.DEVICE)  # Move transform to GPU
+        ).to(Config.DEVICE)
         
         # Initialize amplitude to DB transform and move it to GPU
         self.amplitude_to_db = torchaudio.transforms.AmplitudeToDB().to(Config.DEVICE)
         
+        # Print device information for transforms
         print(f"\nPreprocessing transforms devices:")
-        print(f"Mel spectrogram device: {self.mel_spectrogram.device}")
-        print(f"Amplitude to DB device: {self.amplitude_to_db.device}\n")
+        print(f"Mel spectrogram parameters device: {next(self.mel_spectrogram.parameters()).device if list(self.mel_spectrogram.parameters()) else 'No parameters'}")
+        print(f"Amplitude to DB parameters device: {next(self.amplitude_to_db.parameters()).device if list(self.amplitude_to_db.parameters()) else 'No parameters'}")
     
     def preprocess(self, waveform):
         """
