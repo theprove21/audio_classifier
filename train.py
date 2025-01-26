@@ -189,10 +189,15 @@ def train_model():
             train_dataset = UrbanSoundDataset(fold=train_folds, transform=preprocessor.preprocess)
             test_dataset = UrbanSoundDataset(fold=[fold], transform=preprocessor.preprocess)
             
+            print("Pre-processing dataset...")
+            for idx in tqdm(range(len(train_dataset)), desc="Preprocessing"):
+                _ = train_dataset[idx]
+            print("Preprocessing complete!")
+            
             train_loader = DataLoader(
                 train_dataset,
                 batch_size=Config.BATCH_SIZE,
-                shuffle=True,
+                shuffle=False,
                 num_workers=Config.NUM_WORKERS,
                 pin_memory=Config.PIN_MEMORY,
                 persistent_workers=Config.PERSISTENT_WORKERS,

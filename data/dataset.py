@@ -40,6 +40,8 @@ class UrbanSoundDataset(Dataset):
                 'label': Config.CLASS_MAPPING[row['class']]
             })
 
+        self.cache = {}  # Add preprocessing cache
+
     def __len__(self):
         # return len(self.metadata)
         return len(self.data)
@@ -48,6 +50,9 @@ class UrbanSoundDataset(Dataset):
     #     return len(self.data)
     
     def __getitem__(self, idx):
+        if idx in self.cache:
+            return self.cache[idx]
+            
         import time
         start_time = time.time()
         
@@ -105,6 +110,8 @@ class UrbanSoundDataset(Dataset):
             print(f"Total time: {total_time:.3f}s")
             self._printed_times += 1
         
+        # Cache the result
+        self.cache[idx] = (waveform, label)
         return waveform, label
 
 if __name__ == "__main__":
