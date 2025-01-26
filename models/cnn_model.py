@@ -37,6 +37,13 @@ class AudioCNN(nn.Module):
         )
         
     def forward(self, x):
+        # Add debug print for input
+        if not hasattr(self, '_printed_shape'):
+            print(f"Model input shape: {x.shape}")
+            print(f"Model input device: {x.device}")
+            print(f"Model input memory format: {x.is_contiguous()}")
+            self._printed_shape = True
+        
         x = self.features(x)
         x = self.adaptive_pool(x)
         x = self.classifier(x)

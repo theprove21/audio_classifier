@@ -10,6 +10,7 @@ import os
 import gc
 from torch.cuda.amp import autocast, GradScaler
 import torch.multiprocessing as mp
+import time
 
 # Direct imports since files are in the same directory structure
 from config import Config
@@ -20,15 +21,15 @@ from utils.utils import check_environment
 
 def train_and_evaluate(model, train_loader, val_loader, optimizer, criterion, epoch, fold):
     """Train for one epoch and evaluate"""
-    # Training phase
     model.train()
     train_loss = 0
     
-    # Use torch.amp instead of torch.cuda.amp
-    scaler = torch.amp.GradScaler('cuda')
+    # Force CUDA synchronization for timing
+    torch.cuda.synchronize()
     
     for batch_idx, (data, target) in enumerate(tqdm(train_loader, desc=f'Fold {fold}, Epoch {epoch}')):
-        # Ensure data is contiguous in memory
+        start_time = time.time()
+        
         data = data.contiguous()
         target = target.contiguous()
         
@@ -39,18 +40,36 @@ def train_and_evaluate(model, train_loader, val_loader, optimizer, criterion, ep
             print(f"Model device: {next(model.parameters()).device}")
             print(f"Input data shape: {data.shape}")
             print(f"CUDA memory allocated: {torch.cuda.memory_allocated()/1e9:.2f} GB")
-            print(f"CUDA memory cached: {torch.cuda.memory_reserved()/1e9:.2f} GB\n")
+            print(f"CUDA memory cached: {torch.cuda.memory_reserved()/1e9:.2f} GB")
+            print(f"CUDA max memory allocated: {torch.cuda.max_memory_allocated()/1e9:.2f} GB\n")
         
-        optimizer.zero_grad(set_to_none=True)  # More efficient than False
+        # Time data loading
+        torch.cuda.synchronize()
+        data_time = time.time() - start_time
         
-        # Use torch.amp instead of torch.cuda.amp
+        optimizer.zero_grad(set_to_none=True)
+        
+        # Time forward pass
+        forward_start = time.time()
         with torch.amp.autocast('cuda'):
             output = model(data)
             loss = criterion(output, target)
+        torch.cuda.synchronize()
+        forward_time = time.time() - forward_start
         
-        scaler.scale(loss).backward()
-        scaler.step(optimizer)
-        scaler.update()
+        # Time backward pass
+        backward_start = time.time()
+        loss.backward()
+        optimizer.step()
+        torch.cuda.synchronize()
+        backward_time = time.time() - backward_start
+        
+        if batch_idx == 0:
+            print(f"Timing breakdown for first batch:")
+            print(f"Data loading time: {data_time:.2f}s")
+            print(f"Forward pass time: {forward_time:.2f}s")
+            print(f"Backward pass time: {backward_time:.2f}s")
+            print(f"Total batch time: {time.time() - start_time:.2f}s\n")
         
         train_loss += loss.item()
     
