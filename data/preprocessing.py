@@ -9,16 +9,23 @@ class AudioPreprocessor:
         self.n_mels = n_mels
         self.duration = duration
         
-        # Initialize mel spectrogram transform and move it to the correct device
-        self.mel_spectrogram = torchaudio.transforms.MelSpectrogram(
-            sample_rate=sample_rate,
-            n_fft=2048,
-            hop_length=512,
-            n_mels=n_mels
-        ).to(Config.DEVICE)
+        # Create transforms on GPU and make them contiguous
+        self.mel_spectrogram = (
+            torchaudio.transforms.MelSpectrogram(
+                sample_rate=sample_rate,
+                n_fft=2048,
+                hop_length=512,
+                n_mels=n_mels
+            )
+            .to(Config.DEVICE)
+            .contiguous()
+        )
         
-        # Initialize amplitude to DB transform and move it to GPU
-        self.amplitude_to_db = torchaudio.transforms.AmplitudeToDB().to(Config.DEVICE)
+        self.amplitude_to_db = (
+            torchaudio.transforms.AmplitudeToDB()
+            .to(Config.DEVICE)
+            .contiguous()
+        )
         
         # Print device information for transforms
         print(f"\nPreprocessing transforms devices:")
@@ -34,8 +41,8 @@ class AudioPreprocessor:
             print(f"Waveform device before preprocessing: {waveform.device}")
             self._printed_device = True
         
-        # Ensure waveform is on the correct device
-        waveform = waveform.to(Config.DEVICE)
+        # Ensure waveform is contiguous
+        waveform = waveform.to(Config.DEVICE).contiguous()
         
         # Ensure consistent length
         target_length = int(self.sample_rate * self.duration)
@@ -55,4 +62,4 @@ class AudioPreprocessor:
         # Normalize
         mel_spec_db = (mel_spec_db + 80) / 80  # Normalize approximately to [0,1]
         
-        return mel_spec_db 
+        return mel_spec_db.contiguous() 

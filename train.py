@@ -24,23 +24,27 @@ def train_and_evaluate(model, train_loader, val_loader, optimizer, criterion, ep
     model.train()
     train_loss = 0
     
-    # Move scaler initialization to train_model function
-    scaler = torch.amp.GradScaler('cuda')  # Fixed deprecation warning
+    # Use torch.amp instead of torch.cuda.amp
+    scaler = torch.amp.GradScaler('cuda')
     
     for batch_idx, (data, target) in enumerate(tqdm(train_loader, desc=f'Fold {fold}, Epoch {epoch}')):
-        # Data should already be on GPU from dataset
+        # Ensure data is contiguous in memory
+        data = data.contiguous()
+        target = target.contiguous()
+        
         if batch_idx == 0:
             print(f"\nFirst batch info:")
             print(f"Input data device: {data.device}")
             print(f"Target device: {target.device}")
             print(f"Model device: {next(model.parameters()).device}")
+            print(f"Input data shape: {data.shape}")
             print(f"CUDA memory allocated: {torch.cuda.memory_allocated()/1e9:.2f} GB")
             print(f"CUDA memory cached: {torch.cuda.memory_reserved()/1e9:.2f} GB\n")
         
-        optimizer.zero_grad()
+        optimizer.zero_grad(set_to_none=True)  # More efficient than False
         
-        # Use mixed precision
-        with autocast():
+        # Use torch.amp instead of torch.cuda.amp
+        with torch.amp.autocast('cuda'):
             output = model(data)
             loss = criterion(output, target)
         

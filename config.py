@@ -11,7 +11,7 @@ class Config:
     NUM_EPOCHS = 5
     
     # Training parameters
-    BATCH_SIZE = 128
+    BATCH_SIZE = 256
     NUM_WORKERS = 2
     PIN_MEMORY = False
     PERSISTENT_WORKERS = True
