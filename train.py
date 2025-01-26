@@ -23,8 +23,17 @@ def train_and_evaluate(model, train_loader, val_loader, optimizer, criterion, ep
     train_loss = 0
     
     for batch_idx, (data, target) in enumerate(tqdm(train_loader, desc=f'Fold {fold}, Epoch {epoch}')):
-        # Move data to GPU here
-        data, target = data.to(Config.DEVICE), target.to(Config.DEVICE)
+        # Add these prints for the first batch only
+        if batch_idx == 0:
+            print(f"\nFirst batch info:")
+            print(f"Input data device: {data.device}")
+            print(f"Target device: {target.device}")
+            print(f"Model device: {next(model.parameters()).device}")
+            print(f"CUDA memory allocated: {torch.cuda.memory_allocated()/1e9:.2f} GB")
+            print(f"CUDA memory cached: {torch.cuda.memory_reserved()/1e9:.2f} GB\n")
+        
+        data = data.to(Config.DEVICE)
+        target = target.to(Config.DEVICE)
         
         optimizer.zero_grad()
         output = model(data)
@@ -73,7 +82,11 @@ def train_model():
         
         # Move model to GPU
         model = AudioCNN(Config.NUM_CLASSES).to(Config.DEVICE)
+        print(f"\nModel device: {next(model.parameters()).device}")
+        
         criterion = torch.nn.CrossEntropyLoss().to(Config.DEVICE)
+        print(f"Criterion device: {criterion.device}")
+        
         optimizer = Adam(model.parameters(), lr=Config.LEARNING_RATE)
         
         # Create directories if they don't exist

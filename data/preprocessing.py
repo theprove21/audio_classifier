@@ -19,11 +19,20 @@ class AudioPreprocessor:
         
         # Initialize amplitude to DB transform and move it to GPU
         self.amplitude_to_db = torchaudio.transforms.AmplitudeToDB().to(Config.DEVICE)
+        
+        print(f"\nPreprocessing transforms devices:")
+        print(f"Mel spectrogram device: {self.mel_spectrogram.device}")
+        print(f"Amplitude to DB device: {self.amplitude_to_db.device}\n")
     
     def preprocess(self, waveform):
         """
         Convert waveform to mel spectrogram and apply necessary preprocessing
         """
+        # Add this print for the first call only
+        if not hasattr(self, '_printed_device'):
+            print(f"Waveform device before preprocessing: {waveform.device}")
+            self._printed_device = True
+        
         # Ensure waveform is on the correct device
         waveform = waveform.to(Config.DEVICE)
         

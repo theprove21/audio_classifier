@@ -47,6 +47,13 @@ class UrbanSoundDataset(Dataset):
     #     return len(self.data)
     
     def __getitem__(self, idx):
+        # Add this print for the first item only
+        if idx == 0 and not hasattr(self, '_printed_device'):
+            print(f"\nDataset loading info:")
+            waveform, sample_rate = torchaudio.load(self.data[idx]['path'])
+            print(f"Initial waveform device: {waveform.device}")
+            self._printed_device = True
+        
         audio_path = self.data[idx]['path']
         label = self.data[idx]['label']
         
