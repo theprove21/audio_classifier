@@ -9,6 +9,7 @@ import sys
 import os
 import gc
 from torch.cuda.amp import autocast, GradScaler
+import torch.multiprocessing as mp
 
 # Direct imports since files are in the same directory structure
 from config import Config
@@ -23,7 +24,7 @@ def train_and_evaluate(model, train_loader, val_loader, optimizer, criterion, ep
     model.train()
     train_loss = 0
     
-    scaler = GradScaler()
+    scaler = GradScaler('cuda')
     
     for batch_idx, (data, target) in enumerate(tqdm(train_loader, desc=f'Fold {fold}, Epoch {epoch}')):
         # Add these prints for the first batch only
@@ -80,6 +81,10 @@ def cleanup():
 
 def train_model():
     try:
+        # Set multiprocessing start method to 'spawn'
+        if mp.get_start_method(allow_none=True) != 'spawn':
+            mp.set_start_method('spawn', force=True)
+        
         # Check environment first
         check_environment()
         
@@ -112,7 +117,7 @@ def train_model():
         fold_accuracies = []
         
         # Increase batch size for better GPU utilization
-        BATCH_SIZE = 128  # or 256 depending on memory
+        # BATCH_SIZE = 128  # or 256 depending on memory
         
         # Perform 10-fold cross validation
         for fold in range(1, 11):
@@ -130,7 +135,8 @@ def train_model():
                 num_workers=Config.NUM_WORKERS,
                 pin_memory=Config.PIN_MEMORY,
                 persistent_workers=Config.PERSISTENT_WORKERS,
-                prefetch_factor=Config.PREFETCH_FACTOR
+                prefetch_factor=Config.PREFETCH_FACTOR,
+                multiprocessing_context='spawn'
             )
             test_loader = DataLoader(
                 test_dataset,
@@ -139,7 +145,8 @@ def train_model():
                 num_workers=Config.NUM_WORKERS,
                 pin_memory=Config.PIN_MEMORY,
                 persistent_workers=Config.PERSISTENT_WORKERS,
-                prefetch_factor=Config.PREFETCH_FACTOR
+                prefetch_factor=Config.PREFETCH_FACTOR,
+                multiprocessing_context='spawn'
             )
             
             # Training loop for this fold
