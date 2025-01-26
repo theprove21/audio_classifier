@@ -15,7 +15,11 @@ class Config:
     NUM_WORKERS = 2
     PIN_MEMORY = False
     PERSISTENT_WORKERS = True
-    PREFETCH_FACTOR = 2
+    PREFETCH_FACTOR = 3
+    
+    # Add new parameters
+    DROP_LAST = True  # Drop incomplete batches
+    GENERATOR_WORKERS = True  # Use generator-based workers
     
     # CUDA Optimizations
     CUDNN_BENCHMARK = True

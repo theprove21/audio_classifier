@@ -157,6 +157,8 @@ def train_model():
                 pin_memory=Config.PIN_MEMORY,
                 persistent_workers=Config.PERSISTENT_WORKERS,
                 prefetch_factor=Config.PREFETCH_FACTOR,
+                drop_last=Config.DROP_LAST,
+                generator=torch.Generator(device=Config.DEVICE) if Config.GENERATOR_WORKERS else None,
                 multiprocessing_context='spawn'
             )
             test_loader = DataLoader(
@@ -167,6 +169,8 @@ def train_model():
                 pin_memory=Config.PIN_MEMORY,
                 persistent_workers=Config.PERSISTENT_WORKERS,
                 prefetch_factor=Config.PREFETCH_FACTOR,
+                drop_last=Config.DROP_LAST,
+                generator=torch.Generator(device=Config.DEVICE) if Config.GENERATOR_WORKERS else None,
                 multiprocessing_context='spawn'
             )
             
