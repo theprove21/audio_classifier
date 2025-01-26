@@ -7,9 +7,20 @@ class Config:
     
     # Model parameters
     NUM_CLASSES = 10  # UrbanSound8K has 10 classes
-    BATCH_SIZE = 32
     LEARNING_RATE = 0.001
     NUM_EPOCHS = 5
+    
+    # Training parameters
+    BATCH_SIZE = 128  # Increased for better GPU utilization
+    NUM_WORKERS = 2   # Number of DataLoader workers
+    PIN_MEMORY = True
+    PERSISTENT_WORKERS = True
+    PREFETCH_FACTOR = 2
+    
+    # CUDA Optimizations
+    CUDNN_BENCHMARK = True
+    ALLOW_TF32 = True
+    USE_AMP = True  # Automatic Mixed Precision
     
     # Paths
     # DATA_DIR = r"D:\Documenti\MSc IS\TESI_hyperbolic\sound_datasets\urbansound8k\audio"

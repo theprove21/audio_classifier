@@ -8,6 +8,7 @@ import platform
 import sys
 import os
 import gc
+from torch.cuda.amp import autocast, GradScaler
 
 # Direct imports since files are in the same directory structure
 from config import Config
@@ -21,6 +22,8 @@ def train_and_evaluate(model, train_loader, val_loader, optimizer, criterion, ep
     # Training phase
     model.train()
     train_loss = 0
+    
+    scaler = GradScaler()
     
     for batch_idx, (data, target) in enumerate(tqdm(train_loader, desc=f'Fold {fold}, Epoch {epoch}')):
         # Add these prints for the first batch only
@@ -36,11 +39,15 @@ def train_and_evaluate(model, train_loader, val_loader, optimizer, criterion, ep
         target = target.to(Config.DEVICE)
         
         optimizer.zero_grad()
-        output = model(data)
-        loss = criterion(output, target)
         
-        loss.backward()
-        optimizer.step()
+        # Use mixed precision
+        with autocast():
+            output = model(data)
+            loss = criterion(output, target)
+        
+        scaler.scale(loss).backward()
+        scaler.step(optimizer)
+        scaler.update()
         
         train_loss += loss.item()
     
@@ -76,10 +83,10 @@ def train_model():
         # Check environment first
         check_environment()
         
-        # Set CUDA optimizations
-        torch.backends.cudnn.benchmark = True
-        torch.backends.cuda.matmul.allow_tf32 = True
-        torch.backends.cudnn.allow_tf32 = True
+        # Set CUDA optimizations from config
+        torch.backends.cudnn.benchmark = Config.CUDNN_BENCHMARK
+        torch.backends.cuda.matmul.allow_tf32 = Config.ALLOW_TF32
+        torch.backends.cudnn.allow_tf32 = Config.ALLOW_TF32
         
         # Create directories if they don't exist
         os.makedirs('models/saved', exist_ok=True)
@@ -104,6 +111,9 @@ def train_model():
         # Store results for each fold
         fold_accuracies = []
         
+        # Increase batch size for better GPU utilization
+        BATCH_SIZE = 128  # or 256 depending on memory
+        
         # Perform 10-fold cross validation
         for fold in range(1, 11):
             print(f'\n=== Training on Fold {fold} ===')
@@ -116,20 +126,20 @@ def train_model():
             train_loader = DataLoader(
                 train_dataset,
                 batch_size=Config.BATCH_SIZE,
-                shuffle=False,
-                num_workers=2,
-                pin_memory=False,
-                persistent_workers=True,
-                multiprocessing_context='spawn'
+                shuffle=True,
+                num_workers=Config.NUM_WORKERS,
+                pin_memory=Config.PIN_MEMORY,
+                persistent_workers=Config.PERSISTENT_WORKERS,
+                prefetch_factor=Config.PREFETCH_FACTOR
             )
             test_loader = DataLoader(
                 test_dataset,
                 batch_size=Config.BATCH_SIZE,
                 shuffle=False,
-                num_workers=2,
-                pin_memory=False,
-                persistent_workers=True,
-                multiprocessing_context='spawn'
+                num_workers=Config.NUM_WORKERS,
+                pin_memory=Config.PIN_MEMORY,
+                persistent_workers=Config.PERSISTENT_WORKERS,
+                prefetch_factor=Config.PREFETCH_FACTOR
             )
             
             # Training loop for this fold
