@@ -48,37 +48,34 @@ class UrbanSoundDataset(Dataset):
     #     return len(self.data)
     
     def __getitem__(self, idx):
-        # Add this print for the first item only
-        if idx == 0 and not hasattr(self, '_printed_device'):
-            print(f"\nDataset loading info:")
-            waveform, sample_rate = torchaudio.load(self.data[idx]['path'])
-            print(f"Initial waveform device: {waveform.device}")
-            self._printed_device = True
-        
+        import time
         start_time = time.time()
-
-        audio_path = self.data[idx]['path']
-        label = self.data[idx]['label']
         
-        # Time audio loading
+        # Time file loading
         load_start = time.time()
+        audio_path = self.data[idx]['path']
         waveform, sample_rate = torchaudio.load(audio_path)
         load_time = time.time() - load_start
         
-        # Convert to mono if stereo
+        # Time mono conversion
+        mono_start = time.time()
         if waveform.size(0) > 1:
             waveform = torch.mean(waveform, dim=0, keepdim=True)
+        mono_time = time.time() - mono_start
         
-        # Time GPU transfer
-        gpu_start = time.time()
-        waveform = waveform.to(Config.DEVICE, non_blocking=True)
-        gpu_time = time.time() - gpu_start
-        
+        # Time resampling
+        resample_start = time.time()
         if sample_rate != Config.SAMPLE_RATE:
             resampler = torchaudio.transforms.Resample(
                 sample_rate, Config.SAMPLE_RATE
             ).to(Config.DEVICE)
             waveform = resampler(waveform)
+        resample_time = time.time() - resample_start
+        
+        # Time GPU transfer
+        gpu_start = time.time()
+        waveform = waveform.to(Config.DEVICE, non_blocking=True)
+        gpu_time = time.time() - gpu_start
         
         # Time preprocessing
         prep_start = time.time()
@@ -86,16 +83,27 @@ class UrbanSoundDataset(Dataset):
             waveform = self.transform(waveform)
         prep_time = time.time() - prep_start
         
-        # Create label tensor
-        label = torch.tensor(label, device=Config.DEVICE)
+        # Time label creation
+        label_start = time.time()
+        label = torch.tensor(self.data[idx]['label'], device=Config.DEVICE)
+        label_time = time.time() - label_start
         
-        # Print times for first few items
-        if idx < 3:
-            print(f"\nTiming for item {idx}:")
-            print(f"Audio load time: {load_time:.3f}s")
-            print(f"GPU transfer time: {gpu_time:.3f}s")
-            print(f"Preprocessing time: {prep_time:.3f}s")
-            print(f"Total time: {time.time() - start_time:.3f}s")
+        total_time = time.time() - start_time
+        
+        # Print detailed timing for first few items
+        if not hasattr(self, '_printed_times'):
+            self._printed_times = 0
+        
+        if self._printed_times < 3:
+            print(f"\nDetailed timing for item {idx}:")
+            print(f"File loading: {load_time:.3f}s")
+            print(f"Mono conversion: {mono_time:.3f}s")
+            print(f"Resampling: {resample_time:.3f}s")
+            print(f"GPU transfer: {gpu_time:.3f}s")
+            print(f"Preprocessing: {prep_time:.3f}s")
+            print(f"Label creation: {label_time:.3f}s")
+            print(f"Total time: {total_time:.3f}s")
+            self._printed_times += 1
         
         return waveform, label
 

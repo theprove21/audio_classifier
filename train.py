@@ -24,11 +24,15 @@ def train_and_evaluate(model, train_loader, val_loader, optimizer, criterion, ep
     model.train()
     train_loss = 0
     
-    # Force CUDA synchronization for timing
-    torch.cuda.synchronize()
+    # Time the entire epoch
+    epoch_start = time.time()
+    batch_times = []
+    data_wait_times = []
     
     for batch_idx, (data, target) in enumerate(tqdm(train_loader, desc=f'Fold {fold}, Epoch {epoch}')):
-        start_time = time.time()
+        batch_start = time.time()
+        data_wait_time = batch_start - (batch_times[-1] if batch_times else epoch_start)
+        data_wait_times.append(data_wait_time)
         
         data = data.contiguous()
         target = target.contiguous()
@@ -45,7 +49,7 @@ def train_and_evaluate(model, train_loader, val_loader, optimizer, criterion, ep
         
         # Time data loading
         torch.cuda.synchronize()
-        data_time = time.time() - start_time
+        data_time = time.time() - batch_start
         
         optimizer.zero_grad(set_to_none=True)
         
@@ -64,12 +68,14 @@ def train_and_evaluate(model, train_loader, val_loader, optimizer, criterion, ep
         torch.cuda.synchronize()
         backward_time = time.time() - backward_start
         
+        batch_time = time.time() - batch_start
+        batch_times.append(batch_time)
+        
         if batch_idx == 0:
-            print(f"Timing breakdown for first batch:")
-            print(f"Data loading time: {data_time:.2f}s")
-            print(f"Forward pass time: {forward_time:.2f}s")
-            print(f"Backward pass time: {backward_time:.2f}s")
-            print(f"Total batch time: {time.time() - start_time:.2f}s\n")
+            print(f"\nTiming analysis:")
+            print(f"Time waiting for data: {data_wait_time:.2f}s")
+            print(f"Time processing batch: {batch_time:.2f}s")
+            print(f"Total iteration time: {data_wait_time + batch_time:.2f}s")
         
         train_loss += loss.item()
     
