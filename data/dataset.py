@@ -63,7 +63,12 @@ class UrbanSoundDataset(Dataset):
             waveform = torch.mean(waveform, dim=0, keepdim=True)
         mono_time = time.time() - mono_start
         
-        # Time resampling
+        # Time GPU transfer - Move to GPU BEFORE resampling
+        gpu_start = time.time()
+        waveform = waveform.to(Config.DEVICE, non_blocking=True)
+        gpu_time = time.time() - gpu_start
+        
+        # Time resampling - Now waveform is already on GPU
         resample_start = time.time()
         if sample_rate != Config.SAMPLE_RATE:
             resampler = torchaudio.transforms.Resample(
@@ -71,11 +76,6 @@ class UrbanSoundDataset(Dataset):
             ).to(Config.DEVICE)
             waveform = resampler(waveform)
         resample_time = time.time() - resample_start
-        
-        # Time GPU transfer
-        gpu_start = time.time()
-        waveform = waveform.to(Config.DEVICE, non_blocking=True)
-        gpu_time = time.time() - gpu_start
         
         # Time preprocessing
         prep_start = time.time()
@@ -98,8 +98,8 @@ class UrbanSoundDataset(Dataset):
             print(f"\nDetailed timing for item {idx}:")
             print(f"File loading: {load_time:.3f}s")
             print(f"Mono conversion: {mono_time:.3f}s")
-            print(f"Resampling: {resample_time:.3f}s")
             print(f"GPU transfer: {gpu_time:.3f}s")
+            print(f"Resampling: {resample_time:.3f}s")
             print(f"Preprocessing: {prep_time:.3f}s")
             print(f"Label creation: {label_time:.3f}s")
             print(f"Total time: {total_time:.3f}s")
