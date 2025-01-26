@@ -29,55 +29,85 @@ def train_and_evaluate(model, train_loader, val_loader, optimizer, criterion, ep
     batch_times = []
     data_wait_times = []
     
-    for batch_idx, (data, target) in enumerate(tqdm(train_loader, desc=f'Fold {fold}, Epoch {epoch}')):
-        batch_start = time.time()
-        data_wait_time = batch_start - (batch_times[-1] if batch_times else epoch_start)
-        data_wait_times.append(data_wait_time)
+    # Enable CUDA profiling
+    with torch.profiler.profile(
+        activities=[
+            torch.profiler.ProfilerActivity.CPU,
+            torch.profiler.ProfilerActivity.CUDA,
+        ],
+        schedule=torch.profiler.schedule(
+            wait=1,
+            warmup=1,
+            active=1),
+        on_trace_ready=torch.profiler.tensorboard_trace_handler('./log/profiler'),
+        record_shapes=True,
+        profile_memory=True,
+        with_stack=True
+    ) as prof:
         
-        data = data.contiguous()
-        target = target.contiguous()
-        
-        if batch_idx == 0:
-            print(f"\nFirst batch info:")
-            print(f"Input data device: {data.device}")
-            print(f"Target device: {target.device}")
-            print(f"Model device: {next(model.parameters()).device}")
-            print(f"Input data shape: {data.shape}")
-            print(f"CUDA memory allocated: {torch.cuda.memory_allocated()/1e9:.2f} GB")
-            print(f"CUDA memory cached: {torch.cuda.memory_reserved()/1e9:.2f} GB")
-            print(f"CUDA max memory allocated: {torch.cuda.max_memory_allocated()/1e9:.2f} GB\n")
-        
-        # Time data loading
-        torch.cuda.synchronize()
-        data_time = time.time() - batch_start
-        
-        optimizer.zero_grad(set_to_none=True)
-        
-        # Time forward pass
-        forward_start = time.time()
-        with torch.amp.autocast('cuda'):
-            output = model(data)
-            loss = criterion(output, target)
-        torch.cuda.synchronize()
-        forward_time = time.time() - forward_start
-        
-        # Time backward pass
-        backward_start = time.time()
-        loss.backward()
-        optimizer.step()
-        torch.cuda.synchronize()
-        backward_time = time.time() - backward_start
-        
-        batch_time = time.time() - batch_start
-        batch_times.append(batch_time)
-        
-        if batch_idx == 0:
-            print(f"\nTiming analysis:")
-            print(f"Time waiting for data: {data_wait_time:.2f}s")
-            print(f"Time processing batch: {batch_time:.2f}s")
-            print(f"Total iteration time: {data_wait_time + batch_time:.2f}s")
-        
-        train_loss += loss.item()
+        for batch_idx, (data, target) in enumerate(tqdm(train_loader, desc=f'Fold {fold}, Epoch {epoch}')):
+            batch_start = time.time()
+            data_wait_time = batch_start - (batch_times[-1] if batch_times else epoch_start)
+            data_wait_times.append(data_wait_time)
+            
+            data = data.contiguous()
+            target = target.contiguous()
+            
+            if batch_idx == 0:
+                print(f"\nFirst batch info:")
+                print(f"Input data device: {data.device}")
+                print(f"Target device: {target.device}")
+                print(f"Model device: {next(model.parameters()).device}")
+                print(f"Input data shape: {data.shape}")
+                print(f"CUDA memory allocated: {torch.cuda.memory_allocated()/1e9:.2f} GB")
+                print(f"CUDA memory cached: {torch.cuda.memory_reserved()/1e9:.2f} GB")
+                print(f"CUDA max memory allocated: {torch.cuda.max_memory_allocated()/1e9:.2f} GB\n")
+            
+            # Time data loading
+            torch.cuda.synchronize()
+            data_time = time.time() - batch_start
+            
+            optimizer.zero_grad(set_to_none=True)
+            
+            # Time forward pass
+            forward_start = time.time()
+            with torch.amp.autocast('cuda'):
+                output = model(data)
+                loss = criterion(output, target)
+            torch.cuda.synchronize()
+            forward_time = time.time() - forward_start
+            
+            # Time backward pass
+            backward_start = time.time()
+            loss.backward()
+            optimizer.step()
+            torch.cuda.synchronize()
+            backward_time = time.time() - backward_start
+            
+            batch_time = time.time() - batch_start
+            batch_times.append(batch_time)
+            
+            if batch_idx == 0:
+                print(f"\nDetailed GPU timing:")
+                print(f"Data wait time: {data_wait_time:.2f}s")
+                print(f"Forward time: {forward_time:.2f}s")
+                print(f"Backward time: {backward_time:.2f}s")
+                print(f"GPU memory allocated: {torch.cuda.memory_allocated()/1e9:.2f}GB")
+                print(f"GPU memory reserved: {torch.cuda.memory_reserved()/1e9:.2f}GB")
+                print(f"Max memory allocated: {torch.cuda.max_memory_allocated()/1e9:.2f}GB")
+                
+                # Print model parameter gradients stats
+                for name, param in model.named_parameters():
+                    if param.grad is not None:
+                        print(f"{name} grad stats: mean={param.grad.mean():.3e}, std={param.grad.std():.3e}")
+            
+            prof.step()
+            
+            if batch_idx == 2:  # Print profile after a few iterations
+                print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=10))
+                break
+            
+            train_loss += loss.item()
     
     # Validation phase
     model.eval()
