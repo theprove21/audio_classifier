@@ -14,8 +14,8 @@ class Config:
     # Paths
     # DATA_DIR = r"D:\Documenti\MSc IS\TESI_hyperbolic\sound_datasets\urbansound8k\audio"
     # METADATA_PATH = r"D:\Documenti\MSc IS\TESI_hyperbolic\sound_datasets\urbansound8k\metadata\UrbanSound8K.csv"
-    DATA_DIR = "/content/drive/MyDrive/urbansound8k/audio"
-    METADATA_PATH = "/content/drive/MyDrive/urbansound8k/metadata/UrbanSound8K.csv"
+    DATA_DIR = "/content/mydata/audio"
+    METADATA_PATH = "/content/mydata/metadata/UrbanSound8K.csv"
     PROCESSED_DATA_DIR = "data/processed"
     MODEL_SAVE_DIR = "models/saved"
     

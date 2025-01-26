@@ -76,21 +76,23 @@ def train_model():
         # Check environment first
         check_environment()
         
-        # Explicitly set the device
-        torch.cuda.set_device(0)  # Use first GPU
-        print(f"Using device: {torch.cuda.current_device()}")
+        # Set CUDA optimizations
+        torch.backends.cudnn.benchmark = True
+        torch.backends.cuda.matmul.allow_tf32 = True
+        torch.backends.cudnn.allow_tf32 = True
         
-        # Move model to GPU
+        # Create directories if they don't exist
+        os.makedirs('models/saved', exist_ok=True)
+        
+        # Initialize model and move to GPU
         model = AudioCNN(Config.NUM_CLASSES).to(Config.DEVICE)
         print(f"\nModel device: {next(model.parameters()).device}")
         
         criterion = torch.nn.CrossEntropyLoss().to(Config.DEVICE)
-        print(f"Criterion device: {criterion.device}")
+        # For criterion, check its parameters instead
+        print(f"Criterion parameters device: {next(criterion.parameters()).device if list(criterion.parameters()) else 'No parameters'}")
         
         optimizer = Adam(model.parameters(), lr=Config.LEARNING_RATE)
-        
-        # Create directories if they don't exist
-        os.makedirs('models/saved', exist_ok=True)
         
         # Initialize preprocessing
         preprocessor = AudioPreprocessor(
