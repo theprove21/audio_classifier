@@ -60,6 +60,10 @@ class UrbanSoundDataset(Dataset):
         # Load audio file
         waveform, sample_rate = torchaudio.load(audio_path)
         
+        # Convert to mono if stereo
+        if waveform.size(0) > 1:
+            waveform = torch.mean(waveform, dim=0, keepdim=True)
+        
         # Move to GPU immediately
         waveform = waveform.to(Config.DEVICE, non_blocking=True)
         
