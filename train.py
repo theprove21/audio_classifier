@@ -102,7 +102,7 @@ def train_model():
                 train_dataset,
                 batch_size=Config.BATCH_SIZE,
                 shuffle=False,
-                num_workers=4,
+                num_workers=2,
                 pin_memory=False,
                 persistent_workers=True,
                 multiprocessing_context='spawn'
@@ -111,7 +111,7 @@ def train_model():
                 test_dataset,
                 batch_size=Config.BATCH_SIZE,
                 shuffle=False,
-                num_workers=4,
+                num_workers=2,
                 pin_memory=False,
                 persistent_workers=True,
                 multiprocessing_context='spawn'
